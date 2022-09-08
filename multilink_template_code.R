@@ -19,7 +19,7 @@ comparison_list <- create_comparison_data(records = records,
                                           file_sizes = file_sizes,
                                           duplicates = duplicates)
 
-#### Create comparison data ####
+#### Reduce comparison data ####
 
 # To be edited
 # pairs_to_keep <- 
@@ -69,7 +69,7 @@ L_A <- Inf
 max_cc_size <- 50
 
 full_estimate <- find_bayes_estimate(paritions = results$partitions, 
-                                     burn_in = curn_in,
+                                     burn_in = burn_in,
                                      L_A = L_A, 
                                      max_cc_size = max_cc_size)
 
