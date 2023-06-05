@@ -1,7 +1,7 @@
 ---
 title: "Multilink Tutorial"
 author: "Serge Aleshin-Guendel"
-date: "9/7/2022"
+date: 
 output: 
   pdf_document: 
     number_sections: true
@@ -101,6 +101,10 @@ mixed_data_messy$mixed_data_file3 <-
   mixed_data_messy$mixed_data_file3 %>%
   mutate(sex = ifelse(sex == "unknown", NA, sex))
 ```
+
+When a record contains missing fields, `multilink` uses only the non-missing 
+fields of the record to determine if it matches to other records. 
+
 
 ## Aligning fields
 The fields in each file need to be "aligned" so that they can eventually be 
