@@ -45,7 +45,7 @@ head(mixed_data_messy$mixed_data_file2)
 head(mixed_data_messy$mixed_data_file3)
 ```
 
-The last three elements are IDs which represent which records are true matches. 
+The last three of `mixed_data_messy` elements are IDs which represent which records are true matches. 
 Any records across the three files which have the same IDs are true matches. For
 example, if two records both have the value 1 for their ID, they refer to the 
 same individual. These IDS are for evaluating how the performance of 
@@ -63,18 +63,25 @@ The arguments of `create_comparison_data` which will be important for data
 processing are:
 
 - `records`: A `data.frame` containing all the records to be linked, where each
-column is a field that will be compared. If there are more than one file, 
-records should be obtained by stacking each file on top of each other (for 
-example using `rbind` as we will show later). Missing values for each field 
+column is a field that will be compared. Note that `records` should be a 
+`data.frame` and not a `tibble`, as this can cause errors when using the package.
+Each column in `records` should be a 
+field that will be used in the linkage, so remove any columns that are not meant
+to enter the linkage, e.g. IDs for rows in a file. If there are more than one 
+file,  `records` should be obtained by stacking each file on top of each other 
+(for example using `rbind` as we will show later) ensuring that their fields are
+aligned. Missing values for each field 
 need to be explicitly coded as `NA`. This means if a field has missing values 
 coded as some other value (e.g. -1, "unknown", "missing", "John Doe"), we need
 to recode the field so that the missing values are all `NA`. Another important
 consideration is that if one file is missing a field altogether, every record 
-in that file needs to have that field recorded as missing.
-- `file_sizes`: A `numeric` vector that indicates the size of each file.
+in that file needs to have that field recorded as missing.  
+- `file_sizes`: A `numeric` vector that indicates the size of each file.  
+This is used to identify the rows in `records` that belong to each original 
+datafile. 
 - `duplicates`: A `numeric` vector that indicates which files are assumed to have
 duplicates a priori. `duplicates[k]` should be 1 if file `k` has duplicates, and
-`duplicates[k]` should be 0 if file k has no duplicates. If any files do not 
+`duplicates[k]` should be 0 if file `k` has no duplicates. If any files do not 
 have duplicates, we strongly recommend that the largest such file is organized 
 to be the first file represented in `records`.
 - `types`: A character vector, indicating the comparison to be used for each 
@@ -119,7 +126,7 @@ missing the age field. Thus we need to create a column `age` in
 ```{r}
 mixed_data_messy$mixed_data_file1 <- 
   mixed_data_messy$mixed_data_file1 %>%
-  mutate(age = NA)
+  mutate(age = NA) 
 ```
 
 Next, in `mixed_data_file2` the column recording given name is called 
@@ -155,7 +162,7 @@ records <- rbind(mixed_data_messy$mixed_data_file1,
 We note here that when using `multilink`, we reccomend that you stack the 
 largest file that is assumed to have no duplicates in it a priori as the first
 file (this lets `multilink` run a bit faster). Here we only have one file with 
-no duplciates, the first file, and it's stacked first.
+no duplicates, the first file, and it's stacked first.
 
 ## Making fields correct classes
 We will be using string comparisons for `gname`, `fname`, `phone`, and 
@@ -165,6 +172,23 @@ dataset, however it's important to check this before running `multilink`. If you
 end up not having the correct class for a given field, you will end up receiving 
 an error message. 
 
+Converting fields to class `character` can be accomplished as follows using the
+`mutate` and `as.character` functions:
+```{r}
+records <- records %>%
+  mutate(sex = as.character(sex),
+         age = as.character(age),
+         occup = as.character(occup),
+         gname = as.character(gname),
+         fname = as.character(fname),
+         phone = as.character(phone),
+         postcode = as.character(postcode))
+```
+
+If your fields are class `character` and you are receiving error messages that
+they are not of class `character`, check that `records` is a `data.frame`, and
+not a `tibble` or other data structure.
+
 ## Making string comparison fields the same case
 String comparisons are case sensitive, so we need to make sure any fields that 
 use string comparisons are all upper or lower case. This is already done in our
@@ -173,11 +197,30 @@ case, however it's important to check this before running `multilink`. If you
 end up not having a field be mixed cases, you will *not* receive an error 
 message. 
 
+Converting strings to all lower case can be accomplished as follows using the
+`mutate` and `tolower` functions:
+```{r}
+records <- records %>%
+  mutate(sex = tolower(sex),
+         age = tolower(age),
+         occup = tolower(occup),
+         gname = tolower(gname),
+         fname = tolower(fname),
+         phone = tolower(phone),
+         postcode = tolower(postcode))
+```
+Converting strings to all upper case can be accomplished similarly using the
+`mutate` and `toupper` functions.
+
 # Running multilink
 Now that we have processed our example data set we will demonstrate how to use
 `multilink` to perform multifile duplicate detection and record linkage. This
-can be broken into five steps:
+can be broken into six steps:
 
+- Blocking. Creating comparison data can be very 
+computationally costly. This cost be offset through the use of blocking techniques 
+which partition the data based on reliable fields into blocks. `multilink` can then 
+be run independently on each block of records.
 - Creating comparison data. `multilink` performs multifile duplicate detection 
 and record linkage using a comparison-based approach. That is to say, for each
 pair of records that are potential matches, we generate comparisons for each 
@@ -185,27 +228,42 @@ field in that record pair that tell us how similar that field is. The function
 `create_comparison_data` takes in records and outputs comparisons based on 
 some user arguments.
 - Reducing comparison data. While this step is optional, in many applications it
-is advantageous computationally to reduce "filter" the comparisons. By "filter", 
+is advantageous computationally to reduce or "filter" the comparisons. By "filter", 
 we mean to use rules to declare a priori, based on values of comparisons, that 
 certain record pairs are *not* potential matches. While this can potentially
 introduce false non-matches if the rules used are too strict, it greatly
-reduces the computation time necesarry to run `multilink`.
+reduces the computation time necesary to run `multilink`.
 - Specifying prior information. `multilink` is a Bayesian method, and thus 
-requires the user to specify prior distributions. As this is a more 
-statistically technical component of `multilink`, we will introduce some 
-default prior specifications for those with minimal experience with Bayesian
+requires the user to specify prior distributions. As this 
+is a more  statistically technical component of `multilink`, we will introduce 
+some default prior specifications for those with minimal experience with Bayesian
 methods.
-- Run a Gibbs sampler. `multilink` uses a Gibbs sampler to explore the posterior
-distribution of linkages. This requires the user to specify a initial linkage
-and the number of iterations to run the Gibbs sampler. We will discuss some 
-basic rules of thumb for setting the number of iterations.
--Find and relabel the Bayes estimate. Using the samples for the Gibbs sampler, 
+- Explore the space of linkages. `multilink` uses a Gibbs sampler to explore 
+the posterior distribution of linkages. This requires the user to specify an 
+initial linkage and the number of iterations to run the Gibbs sampler. 
+We will discuss some basic rules of thumb for setting the number of iterations.
+- Find the best linkage. Using the samples for the Gibbs sampler, 
 `multilink` can produce a point estimate for the linkage. As the comparison data
 was reduced in an earlier step, we need to relabel the point estimate so that it
 aligns with the initial input records. 
 
+## Blocking
+The first step, if applicable, is to block the data. In the worst case, if you have
+`R` records, and you have duplicates in every file, you'll have `R` $\times$ `R` 
+comparisons. One way to avoid forming all of these comparisons is to block the data.  
+The main idea for blocking is as follows. Suppose a data set has a field that 
+is not missing for any record and is recorded with minimal error. One could break 
+the data into blocks based on the value of that field. `multilink` can then be 
+run independently on each block of data, rather than on the whole data set, 
+avoiding forming comparisons for every record pair.
+
+The reliability of fields for blocking is application specific, but commonly used
+fields include zip codes, birth years, and first letters of first and/or last names.
+Our example data set is small enough to not need blocking, and messy enough that 
+finding a reliable field is not feasible.
+
 ## Creating comparison data
-The first step is to create comparison data. We have already in the data
+The next step is to create comparison data. We have already in the data
 processing section processed the data files into the appropriate format for
 `create_comparison_data`.
 
@@ -237,7 +295,7 @@ disagreement for a comparison.
 
 As a default for string comparisons, we recommend using the cut points
 `c(0, 0.25, 0.5)`. For these fields that use a "`lv`" or "`lv_sep`" string 
-comparison type, we're using something called the normalized levenshtein 
+comparison type, we're using something called the normalized Levenshtein 
 distance to compare strings. For two strings `s_1` and `s_2` this is the
 minimum number of single-character edits (insertions, deletions or 
 substitutions) required to change one string into the other (see 
@@ -289,8 +347,9 @@ comparison_list <- create_comparison_data(records = records,
 
 ## Reducing comparison data
 `comparison_list$comparisons` contains the discretized comparisons for each
-record pair. Note the columns labelled with "`..._DL_0" represent the highest
-level of agreement.
+record pair. Note the columns labelled with "..._DL_0" represent the highest
+level of agreement. `comparison_list$comparisons` can be very large, as it contains
+the comparisons for each valid pair of records. 
 ```{r}
 head(comparison_list$comparisons)
 ```
@@ -320,7 +379,7 @@ Gibbs sampler to mix slowly. We include an argument `cc`, that when set to 1
 takes the  transitive closure of record pairs that are potential matches in 
 `pairs_to_keep` (otherwise it should be set to 0). 
 
-There is a specific siutation where we *do not recommend setting `cc` to 1*: 
+There is a specific situation where we *do not recommend setting `cc` to 1*: 
 when we filter out comparisons that are *truly not possible matches*.
 For example, suppose records had timestamps, and records from file one could 
 only match records from file two if they had an earlier timestamp.  In a 
@@ -385,7 +444,7 @@ prior_list <- specify_prior(comparison_list = reduced_comparison_list,
                             n_prior_pars = NA)
 ```
 
-## Run Gibbs sampler
+## Explore the space of linkages
 We now set the seed for Gibbs sampler and specify the number of iterations to
 run it for. We recommend initially setting the number of iterations to 
 1000-2000.
@@ -414,7 +473,7 @@ plot(1:n_iter, colSums(results$contingency_tables), type = "l",
      ylab = "Number of clusters", xlab = "Iteration")
 ```
 
-## Find and relabel the Bayes estimate
+## Find the best linkage
 We can now use the samples from the Gibbs sampler to compute a point estimate
 for the linkage. We need to specify the number of iterations of the Gibbs
 sampler to discard for burn in. This should be some iteration after the chain
