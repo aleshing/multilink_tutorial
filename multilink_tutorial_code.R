@@ -112,7 +112,6 @@ max_cc_size <- 50
 
 full_estimate <- find_bayes_estimate(partitions = results$partitions, 
                                      burn_in = 1000,
-                                     L_A = L_A, 
                                      max_cc_size = max_cc_size)
 
 full_estimate_relabel <- 
