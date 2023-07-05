@@ -13,6 +13,7 @@ Detection” by Serge Aleshin-Guendel and Mauricio Sadinle, published in
 the [Journal of the American Statistical
 Association](https://doi.org/10.1080/01621459.2021.2013242) and
 available on [arXiv](https://arxiv.org/abs/2110.03839v1)
+- A video tutorial covering the slides in `multilink_tutorial_slides.html` are available on [youtube](https://www.youtube.com/watch?v=ckgA1Bj1QoQ)
 
 ## Repository Structure
 
